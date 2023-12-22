@@ -1,0 +1,51 @@
+node{
+  def mavenhome = tool name: 'maven3.9.6'
+  stage('1. CloneCode'){
+       //Git/GitHub plugin and generate a pipeline syntax
+//sh "git clone https://github.com/LandmakTechnology/maven-web-application"
+//bat "https://github.com/LandmakTechnology/maven-web-application"for windows systems
+//git "https://github.com/LandmakTechnology/maven-web-application" This will also work
+git credentialsId: 'GitHubCred', url: 'https://github.com/Landmarkttech/maven-web-application'
+
+  }
+  stage('2. MavenBuild'){
+    //sh "mvn package" This will not work
+    //sh "/var/lib/jenkins/tools/hudson.tasks.Maven_MavenInstallation/maven3.9.6/bin/mvn package" This will work but too long
+    //we can make it shorter by creating and calling a function of it as seen above
+    sh "${mavenhome}/bin/mvn package" 
+
+  }
+  stage('3. CodeQualityAnalysis'){
+    sh "${mavenhome}/bin/mvn sonar:sonar"
+    //edit pom.xml propertiesTAG with SonarQube server details
+  }
+  stage('4. UploadArtifacts'){
+    sh "${mavenhome}/bin/mvn deploy"
+  }
+  stage('5. Deploy2UAT'){
+        //Use deploy to container plugin and generate a pipeline syntax
+      deploy adapters: [tomcat9(credentialsId: 'Tomcat-cred', path: '', url: 'http://18.119.96.125:8080/')], contextPath: null, war: 'target/*war'
+  }
+  stage('6.ManualApproval'){
+      sh "echo Please review and approve"
+      timeout(time:300, unit: "MINUTES") {
+        input message: 'Application is ready for Deployment. Please Review and Approve'
+      }
+  }
+  stage('7. Deploy2Prod'){
+      //Use deploy to container plugin and generate a pipeline syntax
+      deploy adapters: [tomcat9(credentialsId: 'Tomcat-cred', path: '', url: 'http://18.119.96.125:8080/')], contextPath: null, war: 'target/*war'
+  }
+  stage('8.APM'){
+     sh "echo 'monitoring and observation and alerting' "
+     sh "echo 'application performance Monitoring in progress' "
+  }
+  stage('9.Notification'){
+      //Generate pipeline syntax
+      sh "echo 'Snent emails to Team members' "
+      emailext body: '''The Build and Deployment status for tesla-webapp.
+
+Regards
+Landmark Technologies''', recipientProviders: [developers(), brokenBuildSuspects(), brokenTestsSuspects(), upstreamDevelopers()], subject: 'DEPLOYMENT DEPLOYMENT STATUS', to: 'enowgabriel72@gmail.com'
+  }
+}
